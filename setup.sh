@@ -158,71 +158,86 @@ set_ini_value() {
     ' "$file" > "$file.tmp" && mv "$file.tmp" "$file"
 }
 
-configure_screen() {
-    step "Screen setup"
-    local detected answer
-    detected=$(detect_resolution)
-    read -r -p "Your screen resolution looks like $detected. Press Enter to accept or type another (e.g. 2560x1440): " answer
-    answer="${answer:-$detected}"
-    [[ "$answer" =~ ^[0-9]+x[0-9]+$ ]] || fail "Resolution must look like 1920x1080"
-    set_ini_value "$system_dir/UnrealTournament.ini" SDLDrv.SDLClient FullscreenViewportX "${answer%x*}"
-    set_ini_value "$system_dir/UnrealTournament.ini" SDLDrv.SDLClient FullscreenViewportY "${answer#*x}"
+ask() {
+    local prompt="$1" variable="$2"
+    read -r -p "$prompt" "${variable?}" || fail "No answer given; run ./setup.sh again in a terminal."
 }
 
-configure_profile() {
-    step "Your player profile"
-    local name model_choice team_choice
+ask_questions() {
+    step "A few questions first (the rest runs on its own)"
+    local detected
+    detected=$(detect_resolution)
     while true; do
-        read -r -p "Player name (letters/numbers, no spaces): " name
-        [[ "$name" =~ ^[A-Za-z0-9_.-]{1,20}$ ]] && break
+        ask "Screen resolution [$detected] (Enter to accept, or type e.g. 2560x1440): " screen_resolution
+        screen_resolution="${screen_resolution:-$detected}"
+        [[ "$screen_resolution" =~ ^[0-9]+x[0-9]+$ ]] && break
+        echo "Please type it like 1920x1080."
+    done
+
+    while true; do
+        ask "Player name (letters/numbers, no spaces): " player_name
+        [[ "$player_name" =~ ^[A-Za-z0-9_.-]{1,20}$ ]] && break
         echo "Please use 1-20 letters, numbers, dots, dashes or underscores."
     done
+
     echo "Character:  1) Male Soldier  2) Female Soldier  3) Male Commando  4) Female Commando  5) Boss"
-    read -r -p "Pick 1-5 [1]: " model_choice
+    while true; do
+        ask "Pick 1-5 [1]: " character_choice
+        character_choice="${character_choice:-1}"
+        [[ "$character_choice" =~ ^[1-5]$ ]] && break
+    done
+
+    echo "Team color (used in team games):  1) Red  2) Blue  3) Green  4) Gold"
+    while true; do
+        ask "Pick 1-4 [1]: " team_choice
+        team_choice="${team_choice:-1}"
+        [[ "$team_choice" =~ ^[1-4]$ ]] && break
+    done
+
+    local current_address=""
+    [[ -f "$repo_dir/.server-address" ]] && current_address=$(<"$repo_dir/.server-address")
+    ask "Family server address to join, e.g. 203.0.113.5 (ask whoever hosts; Enter to ${current_address:+keep $current_address}${current_address:-skip}): " server_address
+    server_address="${server_address:-$current_address}"
+    if [[ -n "$server_address" && "$server_address" != *:* ]]; then
+        server_address="$server_address:7777"
+    fi
+}
+
+apply_answers() {
+    step "Saving your settings"
+    set_ini_value "$system_dir/UnrealTournament.ini" SDLDrv.SDLClient FullscreenViewportX "${screen_resolution%x*}"
+    set_ini_value "$system_dir/UnrealTournament.ini" SDLDrv.SDLClient FullscreenViewportY "${screen_resolution#*x}"
+
     local class skin face voice
-    case "${model_choice:-1}" in
+    case "$character_choice" in
         1) class=Botpack.TMale2;   skin=SoldierSkins.blkt;   face=SoldierSkins.Malcom;    voice=BotPack.VoiceMaleTwo ;;
         2) class=Botpack.TFemale2; skin=SGirlSkins.army;     face=SGirlSkins.Lauren;      voice=BotPack.VoiceFemaleTwo ;;
         3) class=Botpack.TMale1;   skin=CommandoSkins.cmdo;  face=CommandoSkins.Blake;    voice=BotPack.VoiceMaleOne ;;
         4) class=Botpack.TFemale1; skin=FCommandoSkins.cmdo; face=FCommandoSkins.Gromida; voice=BotPack.VoiceFemaleOne ;;
         5) class=Botpack.TBoss;    skin=BossSkins.boss;      face=BossSkins.Xan;          voice=BotPack.VoiceBoss ;;
-        *) fail "Please pick a number from 1 to 5" ;;
     esac
-    echo "Team color (used in team games):  1) Red  2) Blue  3) Green  4) Gold"
-    read -r -p "Pick 1-4 [1]: " team_choice
-    [[ "${team_choice:-1}" =~ ^[1-4]$ ]] || fail "Please pick a number from 1 to 4"
-
     local user_ini="$system_dir/User.ini"
-    set_ini_value "$user_ini" DefaultPlayer Name "$name"
+    set_ini_value "$user_ini" DefaultPlayer Name "$player_name"
     set_ini_value "$user_ini" DefaultPlayer Class "$class"
     set_ini_value "$user_ini" DefaultPlayer skin "$skin"
     set_ini_value "$user_ini" DefaultPlayer Face "$face"
     set_ini_value "$user_ini" DefaultPlayer Voice "$voice"
-    set_ini_value "$user_ini" DefaultPlayer team "$(( ${team_choice:-1} - 1 ))"
-    echo "Saved. You can fine-tune your look in the game under Options > Player Setup."
-}
+    set_ini_value "$user_ini" DefaultPlayer team "$((team_choice - 1))"
+    echo "Profile saved. Fine-tune your look in the game under Options > Player Setup."
 
-configure_server_address() {
-    step "Family server"
-    local current="" address
-    [[ -f "$repo_dir/.server-address" ]] && current=$(<"$repo_dir/.server-address")
-    read -r -p "Address of the family server to join, e.g. 203.0.113.5 (ask whoever hosts; Enter to ${current:+keep $current}${current:-skip}): " address
-    address="${address:-$current}"
-    if [[ -n "$address" ]]; then
-        [[ "$address" == *:* ]] || address="$address:7777"
-        echo "$address" > "$repo_dir/.server-address"
-        echo "Saved. Run ./join.sh to connect."
+    if [[ -n "$server_address" ]]; then
+        echo "$server_address" > "$repo_dir/.server-address"
+        echo "Server address saved. Run ./join.sh to connect."
     fi
 }
 
 mkdir -p "$download_dir"
-install_dependencies
-install_base_game
-install_family_pack
+ask_questions
+install_dependencies < /dev/null
+install_base_game < /dev/null
+install_family_pack < /dev/null
 install_config
-configure_screen
-configure_profile
-configure_server_address
+apply_answers
 
 step "All done!"
 echo "Play:            ./play.sh"
