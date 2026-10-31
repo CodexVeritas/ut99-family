@@ -179,13 +179,13 @@ configure_profile() {
     done
     echo "Character:  1) Male Soldier  2) Female Soldier  3) Male Commando  4) Female Commando  5) Boss"
     read -r -p "Pick 1-5 [1]: " model_choice
-    local class skin face
+    local class skin face voice
     case "${model_choice:-1}" in
-        1) class=Botpack.TMale2;  skin=SoldierSkins.blkt;   face=SoldierSkins.Malcom ;;
-        2) class=Botpack.TFemale2; skin=SGirlSkins.army;    face=SGirlSkins.Lauren ;;
-        3) class=Botpack.TMale1;  skin=CommandoSkins.cmdo;  face=CommandoSkins.Blake ;;
-        4) class=Botpack.TFemale1; skin=FCommandoSkins.cmdo; face=FCommandoSkins.Gromida ;;
-        5) class=Botpack.TBoss;   skin=BossSkins.boss;      face=BossSkins.Xan ;;
+        1) class=Botpack.TMale2;   skin=SoldierSkins.blkt;   face=SoldierSkins.Malcom;    voice=BotPack.VoiceMaleTwo ;;
+        2) class=Botpack.TFemale2; skin=SGirlSkins.army;     face=SGirlSkins.Lauren;      voice=BotPack.VoiceFemaleTwo ;;
+        3) class=Botpack.TMale1;   skin=CommandoSkins.cmdo;  face=CommandoSkins.Blake;    voice=BotPack.VoiceMaleOne ;;
+        4) class=Botpack.TFemale1; skin=FCommandoSkins.cmdo; face=FCommandoSkins.Gromida; voice=BotPack.VoiceFemaleOne ;;
+        5) class=Botpack.TBoss;    skin=BossSkins.boss;      face=BossSkins.Xan;          voice=BotPack.VoiceBoss ;;
         *) fail "Please pick a number from 1 to 5" ;;
     esac
     echo "Team color (used in team games):  1) Red  2) Blue  3) Green  4) Gold"
@@ -197,6 +197,7 @@ configure_profile() {
     set_ini_value "$user_ini" DefaultPlayer Class "$class"
     set_ini_value "$user_ini" DefaultPlayer skin "$skin"
     set_ini_value "$user_ini" DefaultPlayer Face "$face"
+    set_ini_value "$user_ini" DefaultPlayer Voice "$voice"
     set_ini_value "$user_ini" DefaultPlayer team "$(( ${team_choice:-1} - 1 ))"
     echo "Saved. You can fine-tune your look in the game under Options > Player Setup."
 }
