@@ -128,13 +128,21 @@ install_family_pack() {
     touch "$game_dir/.pack-installed"
 }
 
+# The first run always installs the shipped settings (the map unpacking step above makes the engine
+# write its own defaults). Later runs only add missing files so in-game changes are kept.
 install_config() {
     step "Installing preconfigured settings"
-    local file
+    local first_install=false file
+    [[ -f "$game_dir/.config-installed" ]] || first_install=true
     for file in "$repo_dir"/config/*.ini "$repo_dir"/config/mods/*.ini; do
-        [[ -f "$system_dir/${file##*/}" ]] || cp "$file" "$system_dir/"
+        if $first_install || [[ ! -f "$system_dir/${file##*/}" ]]; then
+            cp "$file" "$system_dir/"
+        fi
     done
-    [[ -f "$system_dir/ServerUser.ini" ]] || cp "$repo_dir/config/User.ini" "$system_dir/ServerUser.ini"
+    if $first_install || [[ ! -f "$system_dir/ServerUser.ini" ]]; then
+        cp "$repo_dir/config/User.ini" "$system_dir/ServerUser.ini"
+    fi
+    touch "$game_dir/.config-installed"
 }
 
 detect_resolution() {
