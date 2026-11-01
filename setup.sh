@@ -20,6 +20,8 @@ patch_url="https://github.com/OldUnreal/UnrealTournamentPatches/releases/downloa
 patch_sha256="08c806aa3721b1970045aa158ad90051329d982e8a9a3661153900e9ccbf6b0c"
 pack_release_url="https://github.com/CodexVeritas/ut99-family/releases/download/content-v1"
 
+source "$repo_dir/lib.sh"
+
 step() { printf '\n==> %s\n' "$*"; }
 fail() { printf '\nERROR: %s\n' "$*" >&2; exit 1; }
 
@@ -145,27 +147,6 @@ install_config() {
     touch "$game_dir/.config-installed"
 }
 
-detect_resolution() {
-    local resolution=""
-    if command -v hyprctl >/dev/null; then
-        resolution=$(hyprctl monitors 2>/dev/null | grep -oE '^\s*[0-9]+x[0-9]+' | head -1 | tr -d '[:space:]')
-    fi
-    if [[ -z "$resolution" ]] && command -v xrandr >/dev/null; then
-        resolution=$(xrandr --query 2>/dev/null | grep ' connected primary' | grep -oE '[0-9]+x[0-9]+' | head -1)
-        [[ -n "$resolution" ]] || resolution=$(xrandr --query 2>/dev/null | grep -oE 'current [0-9]+ x [0-9]+' | head -1 | awk '{print $2"x"$4}')
-    fi
-    echo "${resolution:-1920x1080}"
-}
-
-set_ini_value() {
-    local file="$1" section="$2" key="$3" value="$4"
-    awk -v section="[$section]" -v key="$key" -v value="$value" '
-        /^\[/ { inside = ($0 == section) }
-        inside && index($0, key "=") == 1 { print key "=" value; next }
-        { print }
-    ' "$file" > "$file.tmp" && mv "$file.tmp" "$file"
-}
-
 ask() {
     local prompt="$1" variable="$2"
     read -r -p "$prompt" "${variable?}" || fail "No answer given; run ./setup.sh again in a terminal."
@@ -175,6 +156,7 @@ ask_questions() {
     step "A few questions first (the rest runs on its own)"
     local detected
     detected=$(detect_resolution)
+    detected="${detected:-1920x1080}"
     while true; do
         ask "Screen resolution [$detected] (Enter to accept, or type e.g. 2560x1440): " screen_resolution
         screen_resolution="${screen_resolution:-$detected}"
