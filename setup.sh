@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Installs Unreal Tournament GOTY (OldUnreal 469e) with the family mod pack into ./game,
 # then asks for your player profile. Safe to re-run: finished steps are skipped.
+# `setup.sh --update` skips the questions and only applies newer shared settings or mod packs.
 set -euo pipefail
 
 repo_dir="$(cd "$(dirname "$0")" && pwd)"
@@ -115,8 +116,12 @@ install_base_game() {
 }
 
 install_family_pack() {
-    if [[ -f "$game_dir/.pack-installed" ]]; then
-        echo "Family mod pack already installed."
+    # Installs from before the marker held the checksums only ever had the first pack.
+    if [[ -f "$game_dir/.pack-installed" && ! -s "$game_dir/.pack-installed" ]]; then
+        cp "$repo_dir/pack/SHA256SUMS" "$game_dir/.pack-installed"
+    fi
+    if cmp -s "$repo_dir/pack/SHA256SUMS" "$game_dir/.pack-installed" 2>/dev/null; then
+        echo "Family mod pack is up to date."
         return
     fi
     step "Downloading the family mod pack (maps, mods, skins, music)"
@@ -127,24 +132,36 @@ install_family_pack() {
     done < "$repo_dir/pack/SHA256SUMS"
     step "Installing the family mod pack"
     cat "${parts[@]}" | zstd -d -q | tar -xf - -C "$game_dir"
-    touch "$game_dir/.pack-installed"
+    cp "$repo_dir/pack/SHA256SUMS" "$game_dir/.pack-installed"
 }
 
-# The first run always installs the shipped settings (the map unpacking step above makes the engine
-# write its own defaults). Later runs only add missing files so in-game changes are kept.
+shared_config_checksum() {
+    cat "$repo_dir"/config/*.ini "$repo_dir"/config/mods/*.ini | sha256sum | cut -d' ' -f1
+}
+
+# The first run installs every shipped settings file (the map unpacking step above makes the engine
+# write its own defaults). Later runs re-copy the shared files only when config/ changed, and never
+# touch User.ini, which holds each person's profile and key bindings.
 install_config() {
-    step "Installing preconfigured settings"
-    local first_install=false file
-    [[ -f "$game_dir/.config-installed" ]] || first_install=true
-    for file in "$repo_dir"/config/*.ini "$repo_dir"/config/mods/*.ini; do
-        if $first_install || [[ ! -f "$system_dir/${file##*/}" ]]; then
-            cp "$file" "$system_dir/"
-        fi
-    done
-    if $first_install || [[ ! -f "$system_dir/ServerUser.ini" ]]; then
-        cp "$repo_dir/config/User.ini" "$system_dir/ServerUser.ini"
+    local checksum installed_checksum="" file
+    checksum=$(shared_config_checksum)
+    [[ -f "$game_dir/.config-installed" ]] && installed_checksum=$(<"$game_dir/.config-installed")
+    if [[ "$installed_checksum" == "$checksum" ]]; then
+        echo "Shared settings are up to date."
+        return
     fi
-    touch "$game_dir/.config-installed"
+
+    if [[ ! -f "$game_dir/.config-installed" ]]; then
+        step "Installing preconfigured settings"
+        cp "$repo_dir"/config/*.ini "$repo_dir"/config/mods/*.ini "$system_dir/"
+        cp "$repo_dir/config/User.ini" "$system_dir/ServerUser.ini"
+    else
+        step "Updating shared settings (your profile and key bindings are kept)"
+        for file in "$repo_dir"/config/*.ini "$repo_dir"/config/mods/*.ini; do
+            [[ "${file##*/}" == User.ini ]] || cp "$file" "$system_dir/"
+        done
+    fi
+    echo "$checksum" > "$game_dir/.config-installed"
 }
 
 ask() {
@@ -221,13 +238,19 @@ apply_answers() {
     fi
 }
 
+update_only=false
+[[ "${1:-}" == "--update" ]] && update_only=true
+if $update_only && [[ ! -f "$game_dir/.config-installed" ]]; then
+    fail "Nothing installed yet: run ./setup.sh first."
+fi
+
 mkdir -p "$download_dir"
-ask_questions
+$update_only || ask_questions
 install_dependencies < /dev/null
 install_base_game < /dev/null
 install_family_pack < /dev/null
 install_config
-apply_answers
+$update_only || apply_answers
 
 step "All done!"
 echo "Play:            ./play.sh"

@@ -28,16 +28,32 @@ and the family server's address.
 | `./play.sh` | Opens the game. Practice Session already has Low Gravity + StuffSwapper on. |
 | `./join.sh` | Opens the game and connects straight to the family server. |
 | `./server.sh` | Hosts the family server in this terminal. Close the terminal or press Ctrl+C to stop it. |
+| `./update.sh` | Gets the latest shared settings, mods, and fixes. Your profile and key bindings are kept. |
 
 The server runs Deathmatch on DM-lol-Harbour with Low Gravity + StuffSwapper and bots.
 It needs UDP ports 7777-7778 forwarded to the hosting PC. It is not listed publicly;
 people join with the host's address.
+
+## Sharing your settings with everyone
+
+Change settings in the game (mutators, game rules, map rotations, key bindings), quit it, then run:
+
+```bash
+./publish-settings.sh
+```
+
+It copies them into `config/`, shows what changed, and asks before pushing. Your name, screen size,
+passwords, and server history are left out, and it refuses to publish anything that looks like an
+IP address. Everyone else picks the changes up with `./update.sh`; their own profile and key
+bindings stay as they are (key binding changes reach new installs only).
 
 ## Notes
 
 - Everything lives in this folder. Delete the folder to uninstall.
 - Change your look later in the game: Options > Player Setup.
 - Re-run `./setup.sh` to change the saved server address or your profile.
+- `./update.sh` resets in-game Options (sound, video) when shared settings changed, because those
+  live in the same file as the shared game settings.
 - Quit the game before editing anything in `game/System64/*.ini`; the game rewrites those files on exit.
 - The base game downloads from OldUnreal's official mirror. The mod pack is a release
   download from this repo and contains only community content, not Epic's game files.
