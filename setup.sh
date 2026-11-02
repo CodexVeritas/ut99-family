@@ -140,10 +140,10 @@ shared_config_checksum() {
 }
 
 # The first run installs every shipped settings file (the map unpacking step above makes the engine
-# write its own defaults). Later runs re-copy the shared files only when config/ changed, and never
-# touch User.ini, which holds each person's profile and key bindings.
+# write its own defaults). Later runs re-copy the shared files only when config/ changed, never
+# touch User.ini (each person's profile and key bindings), and keep any passwords the host set.
 install_config() {
-    local checksum installed_checksum="" file
+    local checksum installed_checksum="" file name key value
     checksum=$(shared_config_checksum)
     [[ -f "$game_dir/.config-installed" ]] && installed_checksum=$(<"$game_dir/.config-installed")
     if [[ "$installed_checksum" == "$checksum" ]]; then
@@ -156,9 +156,22 @@ install_config() {
         cp "$repo_dir"/config/*.ini "$repo_dir"/config/mods/*.ini "$system_dir/"
         cp "$repo_dir/config/User.ini" "$system_dir/ServerUser.ini"
     else
-        step "Updating shared settings (your profile and key bindings are kept)"
+        step "Updating shared settings (your profile, key bindings, and server passwords are kept)"
         for file in "$repo_dir"/config/*.ini "$repo_dir"/config/mods/*.ini; do
-            [[ "${file##*/}" == User.ini ]] || cp "$file" "$system_dir/"
+            name="${file##*/}"
+            [[ "$name" == User.ini ]] && continue
+            declare -A kept_passwords=()
+            if [[ -f "$system_dir/$name" ]]; then
+                for key in GamePassword AdminPassword; do
+                    kept_passwords[$key]=$(get_ini_value "$system_dir/$name" Engine.GameInfo "$key")
+                done
+            fi
+            cp "$file" "$system_dir/"
+            for key in "${!kept_passwords[@]}"; do
+                value="${kept_passwords[$key]}"
+                [[ -n "$value" ]] && set_ini_value "$system_dir/$name" Engine.GameInfo "$key" "$value"
+            done
+            unset kept_passwords
         done
     fi
     echo "$checksum" > "$game_dir/.config-installed"

@@ -29,11 +29,24 @@ query_server_status() {
     exec {socket}>&-
 }
 
+get_ini_value() {
+    local file="$1" section="$2" key="$3"
+    awk -v section="[$section]" -v key="$key" '
+        /^\[/ { inside = ($0 == section) }
+        inside && index($0, key "=") == 1 { print substr($0, length(key) + 2); exit }
+    ' "$file"
+}
+
+# Sets key=value in [section], adding the key at the end of the section if it is missing.
 set_ini_value() {
     local file="$1" section="$2" key="$3" value="$4"
     awk -v section="[$section]" -v key="$key" -v value="$value" '
-        /^\[/ { inside = ($0 == section) }
-        inside && index($0, key "=") == 1 { print key "=" value; next }
+        /^\[/ {
+            if (inside && !written) { print key "=" value; written = 1 }
+            inside = ($0 == section)
+        }
+        inside && index($0, key "=") == 1 { print key "=" value; written = 1; next }
         { print }
+        END { if (inside && !written) print key "=" value }
     ' "$file" > "$file.tmp" && mv "$file.tmp" "$file"
 }

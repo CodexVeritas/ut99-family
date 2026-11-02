@@ -28,7 +28,7 @@ and the family server's address.
 | `./play.sh` | Opens the game. Practice Session already has Low Gravity + StuffSwapper on. |
 | `./join.sh` | Checks the family server is up, asks for its password the first time, then opens the game connected to it. |
 | `./server.sh` | Hosts the family server in this terminal. Close the terminal or press Ctrl+C to stop it. |
-| `./update.sh` | Gets the latest shared settings, mods, and fixes. Your profile and key bindings are kept. |
+| `./update.sh` | Gets the latest shared settings, mods, and fixes. Your profile, key bindings, and server password are kept. Hosts: stop the server first, then start it again after. |
 
 The server runs Deathmatch on DM-lol-Harbour with Low Gravity + StuffSwapper and bots.
 It needs UDP ports 7777-7778 forwarded to the hosting PC. It is not listed publicly;
