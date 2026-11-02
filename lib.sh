@@ -18,6 +18,17 @@ detect_resolution() {
     echo "$resolution"
 }
 
+# Prints a UT server's raw status reply (\key\value\... pairs), or nothing if it does not answer.
+# The query port is the game port + 1. Uses bash's /dev/udp so no netcat is needed; cat (not
+# bash's read, which takes one byte per packet and drops the rest) collects the reply packets for 2 seconds.
+query_server_status() {
+    local host="$1" query_port="$2" socket
+    exec {socket}<>"/dev/udp/$host/$query_port" 2>/dev/null || return 0
+    printf '\\status\\' >&"$socket" 2>/dev/null || true
+    timeout 2 cat <&"$socket" 2>/dev/null || true
+    exec {socket}>&-
+}
+
 set_ini_value() {
     local file="$1" section="$2" key="$3" value="$4"
     awk -v section="[$section]" -v key="$key" -v value="$value" '

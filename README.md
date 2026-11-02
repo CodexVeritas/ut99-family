@@ -26,13 +26,25 @@ and the family server's address.
 | Command | What it does |
 |---|---|
 | `./play.sh` | Opens the game. Practice Session already has Low Gravity + StuffSwapper on. |
-| `./join.sh` | Opens the game and connects straight to the family server. |
+| `./join.sh` | Checks the family server is up, asks for its password the first time, then opens the game connected to it. |
 | `./server.sh` | Hosts the family server in this terminal. Close the terminal or press Ctrl+C to stop it. |
 | `./update.sh` | Gets the latest shared settings, mods, and fixes. Your profile and key bindings are kept. |
 
 The server runs Deathmatch on DM-lol-Harbour with Low Gravity + StuffSwapper and bots.
 It needs UDP ports 7777-7778 forwarded to the hosting PC. It is not listed publicly;
 people join with the host's address.
+
+### Joining from inside the game
+
+This always works, including on a server with a password:
+
+1. Run `./play.sh` and wait for the main menu.
+2. Go to **Multiplayer > Open Location**.
+3. Type the server address with its port, e.g. `203.0.113.5:7777`, and press OK.
+4. Type the server password when the box asks for it.
+
+`./join.sh` does the same in one step. It remembers the password in `.server-password` on your
+PC only (never uploaded). If the password changes, it clears the saved one and asks again next time.
 
 ## Sharing your settings with everyone
 
